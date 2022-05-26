@@ -47,7 +47,6 @@ jobs:
     inputs:
       targetType: 'inline'
       script: |
-        exit 1
         az deployment tenant create --template-file infra-as-code/bicep/modules/managementGroups/managementGroups.bicep --parameters @infra-as-code/bicep/modules/managementGroups/managementGroups.parameters.example.json parTopLevelManagementGroupPrefix=$(ManagementGroupPrefix) --location $(Location)
 
   - task: Bash@3     
@@ -72,6 +71,7 @@ jobs:
     inputs:
       targetType: 'inline'
       script: |
+        exit 1
         az deployment mg create --template-file infra-as-code/bicep/modules/customRoleDefinitions/customRoleDefinitions.bicep  --parameters @infra-as-code/bicep/modules/customRoleDefinitions/customRoleDefinitions.parameters.example.json parAssignableScopeManagementGroupId=$(ManagementGroupPrefix) --location $(Location) --management-group-id $(ManagementGroupPrefix)
   
   - task: Bash@3    
