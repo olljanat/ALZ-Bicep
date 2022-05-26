@@ -43,7 +43,7 @@ jobs:
 
   - task: Bash@3     
     displayName: Az CLI After Deployment What-If Management Groups for PR
-    name: create_mgs
+    name: whatif_mgs
     inputs:
       targetType: 'inline'
       script: |
