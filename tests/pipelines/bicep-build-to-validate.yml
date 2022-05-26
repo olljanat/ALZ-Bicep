@@ -49,7 +49,7 @@ jobs:
       script: |
         tenantRootGroupID=$(az account management-group list | jq '.[] | select(.displayName | test("Tenant Root Group")) | .id' | tr -d '"')
         result=$(az deployment tenant what-if --template-file infra-as-code/bicep/modules/managementGroups/managementGroups.bicep --parameters @infra-as-code/bicep/modules/managementGroups/managementGroups.parameters.example.json --parameters parTopLevelManagementGroupParentId=$tenantRootGroupID parTopLevelManagementGroupPrefix=$(ManagementGroupPrefix) --location $(Location) --exclude-change-types Ignore NoChange --only-show-errors)
-        if [[ $result != 'Resource changes: no change.' ]]
+        if [[ $result != *'Resource changes: no change.'* ]]
         then
           echo "##vso[task.logissue type=error]WhatIf reports difference between code and environment after deployment"
           echo "$result"
