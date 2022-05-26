@@ -328,9 +328,9 @@ resource resGateway 'Microsoft.Network/virtualNetworkGateways@2021-02-01' = [for
     enableBgp: gateway.enableBgp
     enableBgpRouteTranslationForNat: gateway.enableBgpRouteTranslationForNat
     enableDnsForwarding: gateway.enableDnsForwarding
-    bgpSettings: (gateway.enableBgp) ? gateway.bgpSettings : null
+    bgpSettings: (gateway.bgpSettings) ? gateway.bgpSettings : null
     gatewayType: gateway.gatewayType
-    vpnGatewayGeneration: (gateway.gatewayType == 'VPN') ? gateway.generation : 'None'
+    vpnGatewayGeneration: (gateway.gatewayType == 'VPN') ? gateway.generation : 'Generation1'
     vpnType: gateway.vpntype
     sku: {
       name: gateway.sku
