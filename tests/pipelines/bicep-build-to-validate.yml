@@ -42,13 +42,29 @@ jobs:
         az group create --name $(ResourceGroupName) --location $(Location)
 
   - task: Bash@3     
+    displayName: Az CLI After Deployment What-If Management Groups for PR
+    name: create_mgs
+    inputs:
+      targetType: 'inline'
+      script: |
+        result=$(az deployment tenant what-if --template-file infra-as-code/bicep/modules/managementGroups/managementGroups.bicep --parameters @infra-as-code/bicep/modules/managementGroups/managementGroups.parameters.example.json parTopLevelManagementGroupPrefix=$(ManagementGroupPrefix) --location $(Location) --exclude-change-types Ignore NoChange --only-show-errors)
+        if [[ $result != '' ]]
+        then
+          echo "##vso[task.logissue type=error]WhatIf reports difference between code and environment after deployment"
+          echo $result
+          exit 1
+        fi
+
+  - task: Bash@3     
     displayName: Az CLI Deploy Management Groups for PR
     name: create_mgs
     inputs:
       targetType: 'inline'
       script: |
         az deployment tenant create --template-file infra-as-code/bicep/modules/managementGroups/managementGroups.bicep --parameters @infra-as-code/bicep/modules/managementGroups/managementGroups.parameters.example.json parTopLevelManagementGroupPrefix=$(ManagementGroupPrefix) --location $(Location)
-  
+
+
+
   - task: Bash@3  
     displayName: Az CLI Deploy Custom Role Definitions for PR
     name: create_rbac_roles
