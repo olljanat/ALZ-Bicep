@@ -51,7 +51,7 @@ jobs:
         if [[ $result != 'Resource changes: no change.' ]]
         then
           echo "##vso[task.logissue type=error]WhatIf reports difference between code and environment after deployment"
-          echo $result
+          echo "$result"
           exit 1
         fi
 
