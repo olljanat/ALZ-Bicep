@@ -15,14 +15,19 @@ param parSubnets array = [
   {
     name: 'AzureBastionSubnet'
     ipAddressRange: '10.10.15.0/24'
-  }
-  {
-    name: 'GatewaySubnet'
-    ipAddressRange: '10.10.252.0/24'
+    privateEndpointNetworkPolicies: 'Disabled'
+    routeTableId: ''
   }
   {
     name: 'AzureFirewallSubnet'
     ipAddressRange: '10.10.254.0/24'
+    routeTableId: ''
+  }
+  {
+    name: 'GatewaySubnet'
+    ipAddressRange: '10.10.252.0/24'
+    privateEndpointNetworkPolicies: 'Disabled'
+    routeTableId: ''
   }
 ]
 
@@ -186,9 +191,19 @@ param parVpnGatewayConfig object = {
     bgpPeeringAddress: ''
     peerWeight: 5
   }
+  publicIpName: ''
+  publicIpId: ''
 }
 
-@description('''Configuration for ExpressRoute virtual network gateway to be deployed. If a ExpressRoute virtual network gateway is not desired an empty object should be used as the input parameter in the parameter file, i.e.
+@allowed([
+  '1'
+  '2'
+  '3'
+])
+@description('Availability Zones to deploy the virtual network gateway across. Region must support Availability Zones to use. If it does not then leave empty.')
+param parVpnGatewayAvailabilityZones array = []
+
+@description('''Configuration for ExpressRoute virtual network gateway to be deployed. If a ExpressRoute virtual network gateway is not desired an empty object should be used as the input parameter in the parameter file, i.e. 
 "parExpressRouteGatewayConfig": {
   "value": {}
 }''')
@@ -221,9 +236,13 @@ var varSubnetProperties = [for subnet in parSubnets: {
   name: subnet.name
   properties: {
     addressPrefix: subnet.ipAddressRange
-    networkSecurityGroup: subnet.name != 'AzureBastionSubnet' ? null : {
+    networkSecurityGroup: subnet.name == 'AzureBastionSubnet' && parAzBastionEnabled ? {
       id: '${resourceGroup().id}/providers/Microsoft.Network/networkSecurityGroups/${parAzBastionNsgName}'
-    }
+    } : null
+    privateEndpointNetworkPolicies: subnet.privateEndpointNetworkPolicies
+    routeTable: subnet.routeTableId != '' ? {
+      id: subnet.routeTableId
+    } : null
   }
 }]
 
@@ -277,6 +296,7 @@ module modBastionPublicIp '../publicIp/publicIp.bicep' = if (parAzBastionEnabled
     parPublicIpName: '${parAzBastionName}-PublicIp'
     parPublicIpSku: {
       name: parPublicIpSku
+      tier: 'Regional'
     }
     parPublicIpProperties: {
       publicIpAddressVersion: 'IPv4'
@@ -292,7 +312,7 @@ resource resBastionSubnetRef 'Microsoft.Network/virtualNetworks/subnets@2021-08-
   name: 'AzureBastionSubnet'
 }
 
-resource resBastionNsg 'Microsoft.Network/networkSecurityGroups@2021-08-01' = {
+resource resBastionNsg 'Microsoft.Network/networkSecurityGroups@2021-08-01' = if (parAzBastionEnabled) {
   name: parAzBastionNsgName
   location: parLocation
   tags: parTags
@@ -455,15 +475,16 @@ module modGatewayPublicIp '../publicIp/publicIp.bicep' = [for (gateway, i) in va
   name: 'deploy-Gateway-Public-IP-${i}'
   params: {
     parLocation: parLocation
-    parAvailabilityZones: gateway.gatewayType == 'ExpressRoute' ? parAzErGatewayAvailabilityZones : gateway.gatewayType == 'Vpn' ? parAzVpnGatewayAvailabilityZones : []
-    parPublicIpName: '${gateway.name}-PublicIp'
+    parPublicIpName: (gateway.publicIpName != '') ? gateway.publicIpName : '${gateway.name}-PublicIp'
     parPublicIpProperties: {
       publicIpAddressVersion: 'IPv4'
       publicIpAllocationMethod: 'Static'
     }
     parPublicIpSku: {
       name: parPublicIpSku
+      tier: 'Regional'
     }
+    parAvailabilityZones: parVpnGatewayAvailabilityZones
     parTags: parTags
     parTelemetryOptOut: parTelemetryOptOut
   }
@@ -479,9 +500,14 @@ resource resGateway 'Microsoft.Network/virtualNetworkGateways@2021-02-01' = [for
     enableBgp: gateway.enableBgp
     enableBgpRouteTranslationForNat: gateway.enableBgpRouteTranslationForNat
     enableDnsForwarding: gateway.enableDnsForwarding
-    bgpSettings: (gateway.enableBgp) ? gateway.bgpSettings : null
+    bgpSettings: (gateway.enableBgp) ? gateway.bgpSettings : {
+      asn: gateway.bgpSettings.asn
+    }
+    disableIPSecReplayProtection: false
     gatewayType: gateway.gatewayType
-    vpnGatewayGeneration: (gateway.gatewayType == 'VPN') ? gateway.generation : 'None'
+    isMigrateToCSES: false
+    packetCaptureDiagnosticState: 'None'
+    vpnGatewayGeneration: (gateway.gatewayType == 'VPN') ? gateway.generation : 'Generation1'
     vpnType: gateway.vpnType
     sku: {
       name: gateway.sku
@@ -493,12 +519,14 @@ resource resGateway 'Microsoft.Network/virtualNetworkGateways@2021-02-01' = [for
         name: 'vnetGatewayConfig'
         properties: {
           publicIPAddress: {
-            id: (((gateway.name != 'noconfigVpn') && (gateway.name != 'noconfigEr')) ? modGatewayPublicIp[i].outputs.outPublicIpId : 'na')
+            id: (gateway.publicIpId != '') ? gateway.publicIpId : (gateway.name != 'noconfigVpn' && gateway.name != 'noconfigEr' ? modGatewayPublicIp[i].outputs.outPublicIpId : 'na')
           }
           subnet: {
             id: resGatewaySubnetRef.id
           }
+          privateIPAllocationMethod: 'Dynamic'
         }
+        type: 'Microsoft.Network/virtualNetworkGateways/ipConfigurations'
       }
     ]
   }
@@ -521,6 +549,7 @@ module modAzureFirewallPublicIp '../publicIp/publicIp.bicep' = if (parAzFirewall
     }
     parPublicIpSku: {
       name: parPublicIpSku
+      tier: 'Regional'
     }
     parTags: parTags
     parTelemetryOptOut: parTelemetryOptOut

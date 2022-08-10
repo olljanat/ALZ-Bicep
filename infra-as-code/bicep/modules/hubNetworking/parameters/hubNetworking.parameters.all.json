@@ -18,15 +18,21 @@
       "value": [
         {
           "name": "AzureBastionSubnet",
-          "ipAddressRange": "10.20.0.0/24"
-        },
-        {
-          "name": "GatewaySubnet",
-          "ipAddressRange": "10.20.254.0/24"
+          "ipAddressRange": "10.20.0.0/24",
+          "privateEndpointNetworkPolicies": "Disabled",
+          "routeTableId": ""
         },
         {
           "name": "AzureFirewallSubnet",
-          "ipAddressRange": "10.20.255.0/24"
+          "ipAddressRange": "10.20.255.0/24",
+          "privateEndpointNetworkPolicies": "Disabled",
+          "routeTableId": ""
+        },
+        {
+          "name": "GatewaySubnet",
+          "ipAddressRange": "10.20.254.0/24",
+          "privateEndpointNetworkPolicies": "Disabled",
+          "routeTableId": ""
         }
       ]
     },
@@ -160,8 +166,13 @@
           "asn": "65515",
           "bgpPeeringAddress": "",
           "peerWeight": "5"
-        }
+        },
+        "publicIpName": "",
+        "publicIpId": ""
       }
+    },
+    "parVpnGatewayAvailabilityZones": {
+      "value": []
     },
     "parExpressRouteGatewayConfig": {
       "value": {
